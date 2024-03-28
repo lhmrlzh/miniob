@@ -86,6 +86,12 @@ private:
         }
       }
       rc = RC::VARIABLE_NOT_VALID;
+    } else if (var_value.attr_type() == AttrType::DATES) {
+      bool_value = true;
+      if (var_value.get_boolean() == false) {
+        rc         = RC::VARIABLE_NOT_VALID;
+        bool_value = false;
+      }
     }
 
     return rc;

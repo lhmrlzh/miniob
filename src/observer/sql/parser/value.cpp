@@ -17,8 +17,16 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include <sstream>
+#include "value.h"
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats", "booleans"};
+const char *ATTR_TYPE_NAME[] = {
+    "undefined",
+    "chars",
+    "ints",
+    "dates",
+    "floats",
+    "booleans",
+};
 
 const char *attr_type_to_string(AttrType type)
 {
@@ -45,6 +53,80 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+Value::Value(const char *date, int len, int flag)
+{
+  int p1 = 0, p2 = 0;  // 记录两个间隔符的位置
+  for (int i = 0; i < len; i++) {
+    if (date[i] == '-') {
+      if (p1 == 0)
+        p1 = i;
+      else if (p2 == 0) {
+        p2 = i;
+        break;
+      }
+    }
+  }
+  int year = 0, month = 0, day = 0;
+  for (int i = 0; i < p1; i++) {
+    year *= 10;
+    year += date[i] - '0';
+  }
+  for (int i = p1 + 1; i < p2; i++) {
+    month *= 10;
+    month += date[i] - '0';
+  }
+  for (int i = p2 + 1; i < len; i++) {
+    day *= 10;
+    day += date[i] - '0';
+  }
+  // std::cout << year << ' ' << month << ' ' << day << std::endl;
+  // 闰年打表
+  static int leap_year[17] = {
+      1972, 1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020, 2024, 2028, 2032, 2036};
+  static int month_len[12]      = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  static int month_len_leap[12] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  int        leap_num           = 17;
+  for (int i = 0; i < 17; i++) {
+    if (year <= leap_year[i]) {
+      leap_num = i;
+      break;
+    }
+  }
+  int  val   = 0;
+  bool valid = false;
+  bool leap  = false;
+  if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
+    leap = true;
+  // 对年的计算
+  if (year < 1970 || year > 2038)
+    val = -1e8;
+  else if (month < 1 || month > 12) {
+    val = -1e8;
+    // std::cout << "month invalid" << std::endl;
+  } else if ((day < 1) || (!leap && day > month_len[month - 1]) || (leap && day > month_len_leap[month - 1]))
+    val = -1e8;
+  else {
+    valid = true;
+  }
+  if (valid) {
+
+    val += (year - 1970 - leap_num) * 365 + leap_num * 366;
+
+    // 对月的计算
+    for (int i = 0; i < month - 1; i++) {
+      val += month_len[i];
+    }
+    if (((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) && month > 2) {  // 闰年并且大于2月
+      val += 1;
+    }
+
+    // 对日的计算
+    val += day - 1;
+  }
+  if (valid && val >= 0 && val <= 24867)
+    set_date(val);
+}
+
 void Value::set_data(char *data, int length)
 {
   switch (attr_type_) {
@@ -63,6 +145,10 @@ void Value::set_data(char *data, int length)
       num_value_.bool_value_ = *(int *)data != 0;
       length_                = length;
     } break;
+    case DATES: {
+      num_value_.date_value_ = *(int *)data;
+      length_                = length;
+    }
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -99,6 +185,13 @@ void Value::set_string(const char *s, int len /*= 0*/)
   length_ = str_value_.length();
 }
 
+void Value::set_date(int val)
+{
+  attr_type_             = DATES;
+  num_value_.date_value_ = val;
+  length_                = sizeof(val);
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -114,6 +207,9 @@ void Value::set_value(const Value &value)
     case BOOLEANS: {
       set_boolean(value.get_boolean());
     } break;
+    case DATES: {
+      set_date(value.get_date());
+    }
     case UNDEFINED: {
       ASSERT(false, "got an invalid value type");
     } break;
@@ -148,6 +244,46 @@ std::string Value::to_string() const
     case CHARS: {
       os << str_value_;
     } break;
+    case DATES: {
+      int              val  = num_value_.date_value_;
+      int              tmp  = 0;
+      int              year = 1970, month = 1, day = 1;
+      static const int daysInMonthNonLeap[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+      static const int daysInMonthLeap[]    = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+      while (tmp < val) {
+        tmp += 365 + ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) * 1;
+        year++;
+      }
+      if (tmp == val)
+        os << year << '-' << (month < 10 ? '0' : '\0') << month << '-' << (day < 10 ? '0' : '\0') << day;
+      else {
+        year--;
+        tmp -= 365 + ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) * 1;
+        if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
+          while (tmp < val) {
+            tmp += daysInMonthLeap[month - 1];
+            month++;
+          }
+        } else {
+          while (tmp < val) {
+            tmp += daysInMonthNonLeap[month - 1];
+            month++;
+          }
+        }
+        if (tmp == val)
+          os << year << '-' << (month < 10 ? '0' : '\0') << month << '-' << (day < 10 ? '0' : '\0') << day;
+        else {
+          month--;
+          if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
+            tmp -= daysInMonthLeap[month - 1];
+          } else {
+            tmp -= daysInMonthNonLeap[month - 1];
+          }
+          day += val - tmp;
+          os << year << '-' << (month < 10 ? '0' : '\0') << month << '-' << (day < 10 ? '0' : '\0') << day;
+        }
+      }
+    } break;
     default: {
       LOG_WARN("unsupported attr type: %d", attr_type_);
     } break;
@@ -170,6 +306,9 @@ int Value::compare(const Value &other) const
             this->str_value_.length(),
             (void *)other.str_value_.c_str(),
             other.str_value_.length());
+      } break;
+      case DATES: {
+        return common::compare_int((void *)&this->num_value_.date_value_, (void *)&other.num_value_.date_value_);
       } break;
       case BOOLEANS: {
         return common::compare_int((void *)&this->num_value_.bool_value_, (void *)&other.num_value_.bool_value_);
@@ -206,6 +345,9 @@ int Value::get_int() const
     case FLOATS: {
       return (int)(num_value_.float_value_);
     }
+    case DATES: {
+      return num_value_.date_value_;
+    }
     case BOOLEANS: {
       return (int)(num_value_.bool_value_);
     }
@@ -237,6 +379,9 @@ float Value::get_float() const
     case BOOLEANS: {
       return float(num_value_.bool_value_);
     } break;
+    case DATES: {
+      return float(num_value_.date_value_);
+    }
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
       return 0;
@@ -246,6 +391,8 @@ float Value::get_float() const
 }
 
 std::string Value::get_string() const { return this->to_string(); }
+
+int Value::get_date() const { return num_value_.date_value_; }
 
 bool Value::get_boolean() const
 {
@@ -277,6 +424,9 @@ bool Value::get_boolean() const
     } break;
     case BOOLEANS: {
       return num_value_.bool_value_;
+    } break;
+    case DATES: {
+      return num_value_.int_value_ >= 0 && num_value_.int_value_ <= 24867;
     } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
