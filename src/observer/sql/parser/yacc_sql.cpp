@@ -1932,7 +1932,13 @@ yyreduce:
 #line 394 "yacc_sql.y"
               {
       char *tmp = common::substr((yyvsp[0].string),1,strlen((yyvsp[0].string))-2);
-      (yyval.value) = new Value(tmp,strlen(tmp),1);
+      Value *v      = new Value(tmp, strlen(tmp), 1);
+      (yyval.value) = v;
+      if (v->get_date() < 0 || v->get_date() > 24867) {
+        // 此时即初始化错误
+        std::unique_ptr<ParsedSqlNode> sql_node = std::make_unique<ParsedSqlNode>(SCF_INVALID_VALUE);
+        sql_result->add_sql_node(std::move(sql_node));
+      }
       free(tmp);
       free((yyvsp[0].string));
     }

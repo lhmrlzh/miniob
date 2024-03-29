@@ -54,6 +54,13 @@ RC ParseStage::handle_request(SQLStageEvent *sql_event)
     sql_result->set_return_code(rc);
     sql_result->set_state_string("Failed to parse sql");
     return rc;
+  } else if (sql_node->flag == SCF_INVALID_VALUE) {
+    // set error information to event
+    // std::cout << "FAILURE!" << std::endl;
+    rc = RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    sql_result->set_return_code(rc);
+    sql_event->set_sql_node(std::move(sql_node));
+    return rc;
   }
 
   sql_event->set_sql_node(std::move(sql_node));

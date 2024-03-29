@@ -393,8 +393,15 @@ value:
     }
     |DATE_STR {
       char *tmp = common::substr($1,1,strlen($1)-2);
-      $$ = new Value(tmp,strlen(tmp),1);
+      Value* v=new Value(tmp,strlen(tmp),1);
+      $$ = v;
+      if (v->get_date() < 0 || v->get_date() > 24867) {
+        // 此时即初始化错误
+        std::unique_ptr<ParsedSqlNode> sql_node = std::make_unique<ParsedSqlNode>(SCF_INVALID_VALUE);
+        sql_result->add_sql_node(std::move(sql_node));
+      }
       free(tmp);
+      free($1);
     }
     ;
     

@@ -87,12 +87,22 @@ RC SessionStage::handle_sql(SQLStageEvent *sql_event)
   }
 
   rc = parse_stage_.handle_request(sql_event);
-  if (OB_FAIL(rc)) {
+  if (rc == RC::SCHEMA_FIELD_TYPE_MISMATCH) {
+    LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
+  } else if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
     return rc;
   }
 
-  rc = resolve_stage_.handle_request(sql_event);
+  if (rc != RC::SCHEMA_FIELD_TYPE_MISMATCH)
+    rc = resolve_stage_.handle_request(sql_event);
+  else {
+    SessionEvent *session_event = sql_event->session_event();
+    SqlResult    *sql_result    = session_event->sql_result();
+    sql_result->set_return_code(rc);
+    LOG_TRACE("failed to do resolve. rc=%s", strrc(rc));
+    return rc;
+  }
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do resolve. rc=%s", strrc(rc));
     return rc;

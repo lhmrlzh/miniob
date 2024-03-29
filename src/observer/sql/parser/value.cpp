@@ -254,9 +254,15 @@ std::string Value::to_string() const
         tmp += 365 + ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) * 1;
         year++;
       }
-      if (tmp == val)
-        os << year << '-' << (month < 10 ? '0' : '\0') << month << '-' << (day < 10 ? '0' : '\0') << day;
-      else {
+      if (tmp == val) {
+        os << year << '-';
+        if (month < 10)
+          os << 0;
+        os << month << '-';
+        if (day < 10)
+          os << 0;
+        os << day;
+      } else {
         year--;
         tmp -= 365 + ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) * 1;
         if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
@@ -270,9 +276,15 @@ std::string Value::to_string() const
             month++;
           }
         }
-        if (tmp == val)
-          os << year << '-' << (month < 10 ? '0' : '\0') << month << '-' << (day < 10 ? '0' : '\0') << day;
-        else {
+        if (tmp == val) {
+          os << year << '-';
+          if (month < 10)
+            os << 0;
+          os << month << '-';
+          if (day < 10)
+            os << 0;
+          os << day;
+        } else {
           month--;
           if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
             tmp -= daysInMonthLeap[month - 1];
@@ -280,7 +292,13 @@ std::string Value::to_string() const
             tmp -= daysInMonthNonLeap[month - 1];
           }
           day += val - tmp;
-          os << year << '-' << (month < 10 ? '0' : '\0') << month << '-' << (day < 10 ? '0' : '\0') << day;
+          os << year << '-';
+          if (month < 10)
+            os << 0;
+          os << month << '-';
+          if (day < 10)
+            os << 0;
+          os << day;
         }
       }
     } break;
