@@ -55,7 +55,11 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 
 //标识tokens
 %token  SEMICOLON
+        COUNT_F
         SUM_F
+        AVG_F
+        MAX_F
+        MIN_F
         CREATE
         DROP
         TABLE
@@ -534,8 +538,20 @@ select_attr:
     ;
 
 aggr_op:
-    SUM_F { 
+    COUNT_F {
+      $$ = AGGR_COUNT;
+    }
+    |SUM_F { 
       $$ = AGGR_SUM;
+    }
+    | AVG_F {
+      $$ = AGGR_AVG;
+    }
+    | MAX_F {
+      $$ = AGGR_MAX;
+    }
+    | MIN_F {
+      $$ = AGGR_MIN;
     }
     ;
 
@@ -545,7 +561,7 @@ rel_attr_aggr:
     $$ -> relation_name = "";
     $$ -> attribute_name = "*";
   }
-  |ID{
+  | ID {
     $$ = new RelAttrSqlNode;
     $$->attribute_name = $1;
     free($1);

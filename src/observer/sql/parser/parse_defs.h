@@ -31,8 +31,10 @@ enum AggrOp
   AGGR_COUNT_ALL,  ///< count all
   AGGR_COUNT,      ///< count
   AGGR_SUM,        ///< sum
+  AGGR_AVG,        ///< average
+  AGGR_MAX,        ///< max
+  AGGR_MIN,        ///< min
   AGGR_NONE        ///< no aggr
-
 };
 
 /**

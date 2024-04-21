@@ -26,21 +26,62 @@ RC AggregatePhysicalOperator::next()
   PhysicalOperator *oper = children_[0].get();
 
   std::vector<Value> result_cells;
+  int                cnt = 0;
   while (RC::SUCCESS == (rc = oper->next())) {
     Tuple *tuple = oper->current_tuple();
 
+    cnt++;
     for (int cell_idx = 0; cell_idx < (int)aggregations_.size(); cell_idx++) {
       const AggrOp aggregation = aggregations_[cell_idx];
 
       Value    cell;
       AttrType attr_type = AttrType::INTS;
       switch (aggregation) {
+        case AggrOp::AGGR_COUNT:
+        case AggrOp::AGGR_COUNT_ALL:
+          if (result_cells.size() <= unsigned(cell_idx))
+            result_cells.push_back(Value(0));
+          result_cells[cell_idx].set_int(cnt);
+          break;
         case AggrOp::AGGR_SUM:
           rc        = tuple->cell_at(cell_idx, cell);
           attr_type = cell.attr_type();
           if (attr_type == AttrType::INTS or attr_type == AttrType::FLOATS) {
-            result_cells.push_back(Value(0));
+            if (result_cells.size() <= unsigned(cell_idx))
+              result_cells.push_back(Value(0));
             result_cells[cell_idx].set_float(result_cells[cell_idx].get_float() + cell.get_float());
+          }
+          break;
+        case AggrOp::AGGR_AVG:
+          rc        = tuple->cell_at(cell_idx, cell);
+          attr_type = cell.attr_type();
+          if (attr_type == AttrType::INTS or attr_type == AttrType::FLOATS) {
+            if (result_cells.size() <= unsigned(cell_idx))
+              result_cells.push_back(Value(0));
+            result_cells[cell_idx].set_float(result_cells[cell_idx].get_float() * (cnt - 1));
+            result_cells[cell_idx].set_float((result_cells[cell_idx].get_float() + cell.get_float()) / cnt);
+          }
+          break;
+        case AggrOp::AGGR_MAX:
+          rc        = tuple->cell_at(cell_idx, cell);
+          attr_type = cell.attr_type();
+          if (result_cells.size() <= unsigned(cell_idx))
+            result_cells.push_back(Value(0));
+          if (attr_type == AttrType::INTS) {
+            result_cells[cell_idx].set_int(std::max(result_cells[cell_idx].get_int(), cell.get_int()));
+          } else if (attr_type == AttrType::FLOATS) {
+            result_cells[cell_idx].set_float(std::max(result_cells[cell_idx].get_float(), cell.get_float()));
+          }
+          break;
+        case AggrOp::AGGR_MIN:
+          rc        = tuple->cell_at(cell_idx, cell);
+          attr_type = cell.attr_type();
+          if (result_cells.size() <= unsigned(cell_idx))
+            result_cells.push_back(Value(INT32_MAX));
+          if (attr_type == AttrType::INTS) {
+            result_cells[cell_idx].set_int(std::min(result_cells[cell_idx].get_int(), cell.get_int()));
+          } else if (attr_type == AttrType::FLOATS) {
+            result_cells[cell_idx].set_float(std::min(result_cells[cell_idx].get_float(), cell.get_float()));
           }
           break;
         default: return RC::UNIMPLENMENT;
@@ -48,8 +89,8 @@ RC AggregatePhysicalOperator::next()
     }
   }
 
-  if (!result_cells.empty())
-    result_cells.pop_back();
+  // if (!result_cells.empty())
+  //   result_cells.pop_back();
   LOG_TRACE("result_cells size: %d",result_cells.size());
   if (rc == RC::RECORD_EOF) {
     rc = RC::SUCCESS;
