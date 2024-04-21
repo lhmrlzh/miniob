@@ -1,4 +1,5 @@
 #include "sql/operator/aggregate_physical_operator.h"
+#include <cstring>
 
 void AggregatePhysicalOperator::add_aggregation(const AggrOp aggregation) { aggregations_.push_back(aggregation); }
 
@@ -67,10 +68,24 @@ RC AggregatePhysicalOperator::next()
           attr_type = cell.attr_type();
           if (result_cells.size() <= unsigned(cell_idx))
             result_cells.push_back(Value(0));
-          if (attr_type == AttrType::INTS) {
-            result_cells[cell_idx].set_int(std::max(result_cells[cell_idx].get_int(), cell.get_int()));
-          } else if (attr_type == AttrType::FLOATS) {
-            result_cells[cell_idx].set_float(std::max(result_cells[cell_idx].get_float(), cell.get_float()));
+          switch (attr_type) {
+            case AttrType::INTS:
+              result_cells[cell_idx].set_int(std::max(result_cells[cell_idx].get_int(), cell.get_int()));
+              break;
+            case AttrType::FLOATS:
+              result_cells[cell_idx].set_float(std::max(result_cells[cell_idx].get_float(), cell.get_float()));
+              break;
+            case AttrType::CHARS: {
+              if (cnt == 1)
+                result_cells[cell_idx].set_string("");
+              std::string max_string = std::max(result_cells[cell_idx].get_string(), cell.get_string());
+              char       *max_str    = new char[max_string.length() + 1];
+              std::strcpy(max_str, max_string.c_str());
+              LOG_DEBUG("max_str: %s ", max_str);
+              result_cells[cell_idx].set_string(max_str, strlen(max_str));
+              break;
+            }
+            default: return RC::UNIMPLENMENT;
           }
           break;
         case AggrOp::AGGR_MIN:
@@ -78,10 +93,24 @@ RC AggregatePhysicalOperator::next()
           attr_type = cell.attr_type();
           if (result_cells.size() <= unsigned(cell_idx))
             result_cells.push_back(Value(INT32_MAX));
-          if (attr_type == AttrType::INTS) {
-            result_cells[cell_idx].set_int(std::min(result_cells[cell_idx].get_int(), cell.get_int()));
-          } else if (attr_type == AttrType::FLOATS) {
-            result_cells[cell_idx].set_float(std::min(result_cells[cell_idx].get_float(), cell.get_float()));
+          switch (attr_type) {
+            case AttrType::INTS:
+              result_cells[cell_idx].set_int(std::min(result_cells[cell_idx].get_int(), cell.get_int()));
+              break;
+            case AttrType::FLOATS:
+              result_cells[cell_idx].set_float(std::min(result_cells[cell_idx].get_float(), cell.get_float()));
+              break;
+            case AttrType::CHARS: {
+              if (cnt == 1)
+                result_cells[cell_idx].set_string(cell.get_string().c_str(), cell.get_string().length());
+              std::string min_string = std::min(result_cells[cell_idx].get_string(), cell.get_string());
+              char       *min_str    = new char[min_string.length() + 1];
+              std::strcpy(min_str, min_string.c_str());
+              LOG_DEBUG("min_str: %s ", min_str);
+              result_cells[cell_idx].set_string(min_str, strlen(min_str));
+              break;
+            }
+            default: return RC::UNIMPLENMENT;
           }
           break;
         default: return RC::UNIMPLENMENT;
