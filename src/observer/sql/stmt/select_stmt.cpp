@@ -67,9 +67,18 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
   std::vector<Field> query_fields;
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0; i--) {
     const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
-
+    const AggrOp          aggregation_      = relation_attr.aggregation;
+    const bool            have_aggregation_ = (aggregation_ == AggrOp::AGGR_NONE);
+    const bool            valid             = relation_attr.valid;
+    if (!valid) {
+      return RC::INVALID_ARGUMENT;
+    }
     if (common::is_blank(relation_attr.relation_name.c_str()) &&
         0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
+      if (have_aggregation_ && aggregation_ != AggrOp::AGGR_COUNT) {
+        return RC::INVALID_ARGUMENT;
+      }
+
       for (Table *table : tables) {
         wildcard_fields(table, query_fields);
       }
@@ -95,6 +104,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
 
         Table *table = iter->second;
         if (0 == strcmp(field_name, "*")) {
+          if (have_aggregation_ && aggregation_ != AggrOp::AGGR_COUNT) {
+            return RC::INVALID_ARGUMENT;
+          }
           wildcard_fields(table, query_fields);
         } else {
           const FieldMeta *field_meta = table->table_meta().field(field_name);
@@ -119,7 +131,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
         return RC::SCHEMA_FIELD_MISSING;
       }
 
-      query_fields.push_back(Field(table, field_meta));
+      const AggrOp aggregation_ = relation_attr.aggregation;
+
+      query_fields.push_back(Field(table, field_meta, aggregation_));
     }
   }
 

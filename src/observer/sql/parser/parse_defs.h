@@ -26,6 +26,15 @@ class Expression;
  * @defgroup SQLParser SQL Parser
  */
 
+enum AggrOp
+{
+  AGGR_COUNT_ALL,  ///< count all
+  AGGR_COUNT,      ///< count
+  AGGR_SUM,        ///< sum
+  AGGR_NONE        ///< no aggr
+
+};
+
 /**
  * @brief 描述一个属性
  * @ingroup SQLParser
@@ -37,6 +46,8 @@ struct RelAttrSqlNode
 {
   std::string relation_name;   ///< relation name (may be NULL) 表名
   std::string attribute_name;  ///< attribute name              属性名
+  AggrOp      aggregation = AGGR_NONE;
+  bool        valid       = true;
 };
 
 /**

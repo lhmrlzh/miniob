@@ -55,6 +55,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 
 //标识tokens
 %token  SEMICOLON
+        SUM_F
         CREATE
         DROP
         TABLE
@@ -104,8 +105,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   ParsedSqlNode *                   sql_node;
   ConditionSqlNode *                condition;
   Value *                           value;
+  enum AggrOp                       aggr_op;
   enum CompOp                       comp;
   RelAttrSqlNode *                  rel_attr;
+  RelAttrSqlNode *                  rel_attr_aggr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
@@ -113,6 +116,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<Value> *              value_list;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
+  std::vector<RelAttrSqlNode> *     rel_attr_aggr_list;
   std::vector<std::string> *        relation_list;
   char *                            string;
   int                               number;
@@ -131,8 +135,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition>           condition
 %type <value>               value
 %type <number>              number
+%type <aggr_op>             aggr_op
 %type <comp>                comp_op
 %type <rel_attr>            rel_attr
+%type <rel_attr_aggr>       rel_attr_aggr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
@@ -140,6 +146,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition_list>      condition_list
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
+%type <rel_attr_aggr_list>  rel_attr_aggr_list
 %type <rel_attr_list>       attr_list
 %type <expression>          expression
 %type <expression_list>     expression_list
@@ -526,6 +533,49 @@ select_attr:
     }
     ;
 
+aggr_op:
+    SUM_F { 
+      $$ = AGGR_SUM;
+    }
+    ;
+
+rel_attr_aggr:
+  '*'{
+    $$ = new RelAttrSqlNode;
+    $$ -> relation_name = "";
+    $$ -> attribute_name = "*";
+  }
+  |ID{
+    $$ = new RelAttrSqlNode;
+    $$->attribute_name = $1;
+    free($1);
+  }
+  | ID DOT ID {
+    $$ = new RelAttrSqlNode;
+    $$->relation_name  = $1;
+    $$->attribute_name = $3;
+    free($1);
+    free($3);
+  }
+  ;
+
+rel_attr_aggr_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | COMMA rel_attr_aggr rel_attr_aggr_list {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
+
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    ;
+
 rel_attr:
     ID {
       $$ = new RelAttrSqlNode;
@@ -538,6 +588,21 @@ rel_attr:
       $$->attribute_name = $3;
       free($1);
       free($3);
+    }
+    | aggr_op LBRACE rel_attr_aggr rel_attr_aggr_list RBRACE{
+      $$ = $3;
+      $$ -> aggregation = $1;
+      if($4 != nullptr){
+        $$->valid = false;
+        delete $4;
+      }
+    }
+    | aggr_op LBRACE RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$ -> relation_name = "";
+      $$ -> attribute_name = "";
+      $$ -> aggregation = $1;
+      $$ -> valid = false;
     }
     ;
 

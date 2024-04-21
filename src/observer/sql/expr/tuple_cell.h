@@ -20,15 +20,19 @@ See the Mulan PSL v2 for more details. */
 class TupleCellSpec
 {
 public:
-  TupleCellSpec(const char *table_name, const char *field_name, const char *alias = nullptr);
-  TupleCellSpec(const char *alias);
+  TupleCellSpec(const char *table_name, const char *field_name, const char *alias = nullptr,
+      const AggrOp aggr = AggrOp::AGGR_NONE);
+  TupleCellSpec(const char *alias, const AggrOp aggr = AggrOp::AGGR_NONE);
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
   const char *alias() const { return alias_.c_str(); }
 
+  void aggr_to_string(AggrOp aggr, std::string &str);
+
 private:
   std::string table_name_;
   std::string field_name_;
   std::string alias_;
+  AggrOp      aggr_;
 };

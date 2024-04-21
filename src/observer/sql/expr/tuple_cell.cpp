@@ -14,8 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/tuple_cell.h"
 #include "common/lang/string.h"
+#include "tuple_cell.h"
 
-TupleCellSpec::TupleCellSpec(const char *table_name, const char *field_name, const char *alias)
+TupleCellSpec::TupleCellSpec(const char *table_name, const char *field_name, const char *alias, const AggrOp aggr)
 {
   if (table_name) {
     table_name_ = table_name;
@@ -23,8 +24,18 @@ TupleCellSpec::TupleCellSpec(const char *table_name, const char *field_name, con
   if (field_name) {
     field_name_ = field_name;
   }
+  if (aggr) {
+    aggr_ = aggr;
+  }
   if (alias) {
     alias_ = alias;
+    if (aggr == AggrOp::AGGR_COUNT_ALL) {
+      alias_ = "COUNT(*)";
+    } else if (aggr != AggrOp::AGGR_NONE) {
+      std::string aggr_repr;
+      aggr_to_string(aggr, aggr_repr);
+      alias_ = aggr_repr + "(" + alias_ + ")";
+    }
   } else {
     if (table_name_.empty()) {
       alias_ = field_name_;
@@ -34,9 +45,27 @@ TupleCellSpec::TupleCellSpec(const char *table_name, const char *field_name, con
   }
 }
 
-TupleCellSpec::TupleCellSpec(const char *alias)
+TupleCellSpec::TupleCellSpec(const char *alias, const AggrOp aggr)
 {
+  if (aggr) {
+    aggr_ = aggr;
+  }
   if (alias) {
     alias_ = alias;
+    if (aggr == AggrOp::AGGR_COUNT_ALL) {
+      alias_ = "COUNT(*)";
+    } else if (aggr != AggrOp::AGGR_NONE) {
+      std::string aggr_repr;
+      aggr_to_string(aggr, aggr_repr);
+      alias_ = aggr_repr + "(" + alias_ + ")";
+    }
+  }
+}
+
+void TupleCellSpec::aggr_to_string(AggrOp aggr, std::string &str)
+{
+  switch (aggr) {
+    case AGGR_SUM: str = "SUM"; break;
+    default: break;
   }
 }
