@@ -85,6 +85,12 @@ RC AggregatePhysicalOperator::next()
               result_cells[cell_idx].set_string(max_str, strlen(max_str));
               break;
             }
+            case AttrType::DATES: {
+              if (cnt == 1)
+                result_cells[cell_idx].set_date(0);
+              result_cells[cell_idx].set_date(std::max(result_cells[cell_idx].get_date(), cell.get_date()));
+              break;
+            }
             default: return RC::UNIMPLENMENT;
           }
           break;
@@ -108,6 +114,12 @@ RC AggregatePhysicalOperator::next()
               std::strcpy(min_str, min_string.c_str());
               LOG_DEBUG("min_str: %s ", min_str);
               result_cells[cell_idx].set_string(min_str, strlen(min_str));
+              break;
+            }
+            case AttrType::DATES: {
+              if (cnt == 1)
+                result_cells[cell_idx].set_date(24867);
+              result_cells[cell_idx].set_date(std::min(result_cells[cell_idx].get_date(), cell.get_date()));
               break;
             }
             default: return RC::UNIMPLENMENT;
