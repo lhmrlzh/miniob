@@ -151,6 +151,16 @@ struct UpdateSqlNode
 };
 
 /**
+ * @brief 描述一个join语句
+ * @ingroup SQLParser
+ */
+struct JoinSqlNode
+{
+  std::vector<std::string>      relations;
+  std::vector<ConditionSqlNode> conditions;
+};
+
+/**
  * @brief 描述一个属性
  * @ingroup SQLParser
  * @details 属性，或者说字段(column, field)

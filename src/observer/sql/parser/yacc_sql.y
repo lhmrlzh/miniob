@@ -76,6 +76,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         LBRACE
         RBRACE
         COMMA
+        INNER
+        JOIN
         TRX_BEGIN
         TRX_COMMIT
         TRX_ROLLBACK
@@ -113,6 +115,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   enum CompOp                       comp;
   RelAttrSqlNode *                  rel_attr;
   RelAttrSqlNode *                  rel_attr_aggr;
+  JoinSqlNode *                     join_attr;
+  std::vector<JoinSqlNode> *        join_list;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
@@ -143,6 +147,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <comp>                comp_op
 %type <rel_attr>            rel_attr
 %type <rel_attr_aggr>       rel_attr_aggr
+%type <join_attr>           join_attr
+%type <join_list>           join_list
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
@@ -372,6 +378,42 @@ insert_stmt:        /*insert   语句的语法解析树*/
     }
     ;
 
+join_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | join_attr {
+      $$ = new std::vector<JoinSqlNode>;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    | join_attr COMMA join_list {
+      $$ = $3;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    ;
+join_attr:
+    ID INNER JOIN ID ON condition_list{
+      $$ = new JoinSqlNode;
+      $$->relations.emplace_back($1);
+      $$->relations.emplace_back($4);
+      free($1);
+      free($4);
+      $$->conditions=(*$6);
+    }
+    | join_attr INNER JOIN ID ON condition_list{
+      if($1 != nullptr){
+        $$=$1;
+      }else{
+        $$=new JoinSqlNode;
+      }
+      $$->relations.emplace_back($4);
+      free($4);
+      $$->conditions.insert($$->conditions.end(),$6->begin(),$6->end());
+    }
+    ;
 value_list:
     /* empty */
     {
@@ -444,7 +486,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where
+    SELECT select_attr FROM ID rel_list join_list where
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -457,12 +499,43 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
       $$->selection.relations.push_back($4);
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
-
-      if ($6 != nullptr) {
-        $$->selection.conditions.swap(*$6);
-        delete $6;
+      
+      if ($7 != nullptr) {
+        $$->selection.conditions.swap(*$7);
+        delete $7;
       }
       free($4);
+
+      if ($6 != nullptr){
+        for(JoinSqlNode node : (*$6)){
+          $$->selection.relations.insert($$->selection.relations.end(),node.relations.begin(),node.relations.end());
+          $$->selection.conditions.insert($$->selection.conditions.end(),node.conditions.begin(),node.conditions.end());
+        }
+        delete $6;
+      }
+    }
+    | SELECT select_attr FROM join_list where
+    {
+      $$ = new ParsedSqlNode(SCF_SELECT);
+      if ($2 != nullptr) {
+        $$->selection.attributes.swap(*$2);
+        delete $2;
+      }
+
+      std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
+      
+      if ($5 != nullptr) {
+        $$->selection.conditions.swap(*$5);
+        delete $5;
+      }
+
+      if ($4 != nullptr){
+        for(JoinSqlNode node : (*$4)){
+          $$->selection.relations.insert($$->selection.relations.end(),node.relations.begin(),node.relations.end());
+          $$->selection.conditions.insert($$->selection.conditions.end(),node.conditions.begin(),node.conditions.end());
+        }
+        delete $4;
+      }
     }
     ;
 calc_stmt:
