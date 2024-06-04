@@ -32,7 +32,7 @@ RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bo
   }
 
   std::unique_ptr<LogicalOperator> &child_oper = oper->children().front();
-  if (child_oper->type() != LogicalOperatorType::TABLE_GET || child_oper->type() != LogicalOperatorType::JOIN) {
+  if (!(child_oper->type() == LogicalOperatorType::TABLE_GET || child_oper->type() == LogicalOperatorType::JOIN)) {
     return rc;
   }
 

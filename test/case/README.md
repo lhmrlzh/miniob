@@ -8,7 +8,7 @@ python3 miniob_test.py
 
 运行 basic 测试用例
 ```bash
-python3 miniob_test.py --test-cases=basic,
+python3 miniob_test.py --test-cases=primary-join-tables,
 python3 miniob_test.py --test-cases=primary-date,
 python3 miniob_test.py --test-cases=primary-aggregation-func
 ```
